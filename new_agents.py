@@ -30,16 +30,19 @@ class GreedyAgent:
         best_action_index = np.argmax(rewards)
         return self.action_space.sample()[best_action_index]
 
+import numpy as np
+import random
+from lbforaging.foraging.environment import Action
+from lbforaging.foraging.agent import Agent
 
 class HeuristicAgent(Agent):
     name = "Heuristic Agent"
 
-    def _center_of_players(self, players):
-        coords = np.array([player.position for player in players])
+    def _center_of_players(self, positions):
+        coords = np.array(positions).reshape(-1, 2)
         return np.rint(coords.mean(axis=0))
 
     def _move_towards(self, target, allowed):
-
         y, x = self.observed_position
         r, c = target
 
@@ -55,7 +58,8 @@ class HeuristicAgent(Agent):
             raise ValueError("No simple path found")
 
     def step(self, obs):
-        raise NotImplemented("Heuristic agent is implemented by H1-H4")
+        raise NotImplementedError("Heuristic agent is implemented by H1-H4")
+
 
 
 class H1(HeuristicAgent):
@@ -132,33 +136,40 @@ class H3(HeuristicAgent):
 
 
 class H4(HeuristicAgent):
-    """
-	H4 Agent goes to the one visible food which is closest to all visible players
-	 such that the sum of their and H4's level is sufficient to load the food
-	"""
-
     name = "H4"
 
     def step(self, obs):
+        # Assuming obs is structured such that positions and levels are interleaved
+        num_agents = 2  # Adjust this based on actual number of agents
+        positions = [obs[i*2:(i+1)*2] for i in range(num_agents)]
+        levels = [obs[2*num_agents + i] for i in range(num_agents)]
 
-        players_center = self._center_of_players(obs.players)
-        players_sum_level = sum([a.level for a in obs.players])
+        self.observed_position = positions[0]  # Assuming the agent's position is the first in the list
+        players_center = self._center_of_players(positions)
+        players_sum_level = sum(levels)
 
         try:
             r, c = self._closest_food(obs, players_sum_level, players_center)
         except TypeError:
-            return random.choice(obs.actions)
+            return random.choice([Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST, Action.LOAD])
         y, x = self.observed_position
 
         if (abs(r - y) + abs(c - x)) == 1:
             return Action.LOAD
 
         try:
-            return self._move_towards((r, c), obs.actions)
+            return self._move_towards((r, c), [Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST])
         except ValueError:
-            return random.choice(obs.actions)
+            return random.choice([Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST])
 
-_CACHE = None
+    def _closest_food(self, obs, players_sum_level, center):
+        # Implement your logic to find the closest food here
+        # For now, let's just return a dummy value
+        # This should return the position of the closest food
+        food_positions = np.array([[2, 2], [4, 4]])  # Dummy food positions, replace with actual logic
+        distances = [np.linalg.norm(np.array(food) - np.array(center)) for food in food_positions]
+        closest_idx = np.argmin(distances)
+        return food_positions[closest_idx]
 
 
 class QLearningTable:
