@@ -3,21 +3,25 @@ import lbforaging
 import numpy as np
 import time
 from lbforaging.foraging.environment import Action
-from lbforaging.foraging.agent import Agent
 import random
-
-from new_agents import RandomAgent, GreedyAgent, H1, H2, H3, H4, QAgent
+from agent import Agent
+#from new_agents import RandomAgent, GreedyAgent, H1, H2, H3, H4, QAgent
 
 
 def run_episode(env, agents):
-    observations = env.reset()
+    obs = env.reset()
     done = False
+    A = np.ones(2,dtype = int)
     steps = 0
-
+    epsilon = 0.9
     while not done:
-        actions = [agent.step(obs) for agent, obs in zip(agents, observations)]
-        observations, rewards, dones, info = env.step(actions)
+        for i in range(len(agents)):
+            A[i] = agents[i].chooseAction(obs[i], epsilon)
+        nx, rewards, dones, info = env.step(obs, A)
+        obs = nx
         steps += 1
+        agents[0] = agents[0].update(obs, nx[0], A[0],rewards[0])
+        agents[1] = agents[1].update(obs, nx[1], A[1], rewards[1])
         env.render()
         done = np.all(dones)
         time.sleep(0.2)
@@ -27,11 +31,14 @@ def run_episode(env, agents):
 
 if __name__ == "__main__":
 
-    env = gym.make("Foraging-8x8-2p-2f-v2")
+    env = gym.make("Foraging-5x5-2p-2f-v2")
 
     # Create agents
-    agents = [H4(env.observation_space) for _ in range(2)]
-    n_episodes = 2
+    agents = []
+    n_agents = 2
+    for i in range(n_agents):
+        agents.append(Agent(id = i, grid_size=5, n_apples=2, n_agents=n_agents))
+    n_episodes = 1
     for episode in range(n_episodes):
         steps, rewards = run_episode(env, agents)
         print(f"Episode {episode + 1}: Steps taken = {steps}, Rewards = {rewards}")

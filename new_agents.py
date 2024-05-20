@@ -1,7 +1,7 @@
 import random
 import numpy as np
 from lbforaging.foraging.agent import Agent
-from lbforaging.foraging.environment import Action
+from lbforaging.foraging.environment import Action, ForagingEnv, Env
 
 from itertools import repeat, product
 
@@ -30,10 +30,6 @@ class GreedyAgent:
         best_action_index = np.argmax(rewards)
         return self.action_space.sample()[best_action_index]
 
-import numpy as np
-import random
-from lbforaging.foraging.environment import Action
-from lbforaging.foraging.agent import Agent
 
 class HeuristicAgent(Agent):
     name = "Heuristic Agent"
@@ -64,26 +60,39 @@ class HeuristicAgent(Agent):
 
 class H1(HeuristicAgent):
     """
-	H1 agent always goes to the closest food
-	"""
+    H1 agent always goes to the closest food
+    """
 
     name = "H1"
 
     def step(self, obs):
+        # Assuming the observation array is structured as follows:
+        # [agent1_x, agent1_y, agent2_x, agent2_y, level1, level2, food1_x, food1_y, food2_x, food2_y, ...]
+        num_agents = 2
+        positions = [obs[i * 2:(i + 1) * 2] for i in range(num_agents)]
+        levels = [obs[2 * num_agents + i] for i in range(num_agents)]
+
+        self.observed_position = positions[0]
+
+        # Wrap the obs in the ObservationWrapper
+        wrapped_obs = ObservationWrapper(obs)
+
         try:
-            r, c = self._closest_food(obs)
+            r, c = self._closest_food(wrapped_obs)
         except TypeError:
-            return random.choice(obs.actions)
+            return random.choice([Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST, Action.LOAD])
+        except ValueError:
+            return random.choice([Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST])
+
         y, x = self.observed_position
 
         if (abs(r - y) + abs(c - x)) == 1:
             return Action.LOAD
 
         try:
-            return self._move_towards((r, c), obs.actions)
+            return self._move_towards((r, c), [Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST])
         except ValueError:
-            return random.choice(obs.actions)
-
+            return random.choice([Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST])
 
 class H2(HeuristicAgent):
     """
@@ -94,10 +103,13 @@ class H2(HeuristicAgent):
 
     def step(self, obs):
 
-        players_center = self._center_of_players(obs.players)
-
+        #players_center = self._center_of_players(obs.players)
+        wrapped_obs = ObservationWrapper(obs)
+        num_agents = 2
+        positions = [obs[i * 2:(i + 1) * 2] for i in range(num_agents)]
+        self.observed_position = positions[0]
         try:
-            r, c = self._closest_food(obs, None, players_center)
+            r, c = self._closest_food(wrapped_obs)
         except TypeError:
             return random.choice(obs.actions)
         y, x = self.observed_position
@@ -139,19 +151,24 @@ class H4(HeuristicAgent):
     name = "H4"
 
     def step(self, obs):
-        # Assuming obs is structured such that positions and levels are interleaved
-        num_agents = 2  # Adjust this based on actual number of agents
-        positions = [obs[i*2:(i+1)*2] for i in range(num_agents)]
-        levels = [obs[2*num_agents + i] for i in range(num_agents)]
+        num_agents = 2
+        positions = [obs[i * 2:(i + 1) * 2] for i in range(num_agents)]
+        levels = [obs[2 * num_agents + i] for i in range(num_agents)]
 
-        self.observed_position = positions[0]  # Assuming the agent's position is the first in the list
+        self.observed_position = positions[0]
         players_center = self._center_of_players(positions)
         players_sum_level = sum(levels)
 
+        # Wrap the obs in the ObservationWrapper
+        wrapped_obs = ObservationWrapper(obs)
+
         try:
-            r, c = self._closest_food(obs, players_sum_level, players_center)
+            r, c = self._closest_food(wrapped_obs, players_sum_level, players_center)
         except TypeError:
             return random.choice([Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST, Action.LOAD])
+        except ValueError:
+            return random.choice([Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST])
+        
         y, x = self.observed_position
 
         if (abs(r - y) + abs(c - x)) == 1:
@@ -161,207 +178,107 @@ class H4(HeuristicAgent):
             return self._move_towards((r, c), [Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST])
         except ValueError:
             return random.choice([Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST])
+        
+import gym
+import numpy as np
 
-    def _closest_food(self, obs, players_sum_level, center):
-        # Implement your logic to find the closest food here
-        # For now, let's just return a dummy value
-        # This should return the position of the closest food
-        food_positions = np.array([[2, 2], [4, 4]])  # Dummy food positions, replace with actual logic
-        distances = [np.linalg.norm(np.array(food) - np.array(center)) for food in food_positions]
-        closest_idx = np.argmin(distances)
-        return food_positions[closest_idx]
+def discretize_observation(observation, num_bins=5):
+  """Discretizes the observation into a list of integer bin indices.
 
+  Args:
+      observation: A list of floats representing the agent's observation.
+      num_bins: The number of bins to use for discretization (default: 5).
 
-class QLearningTable:
-    _DATA_FILE = "qtable.gz"
+  Returns:
+      A list of integers representing the discretized state.
+  """
+  discretized_state = []
+  for obs in observation:
+    # Normalize observation value (optional, adjust based on observation range)
+    normalized_obs = (obs - min(observation)) / (max(observation) - min(observation))
+    # Discretize the normalized value into a bin index
+    bin_index = int(normalized_obs * (num_bins - 1))
+    discretized_state.append(bin_index)
+  return discretized_state
 
-    def __init__(self, actions):
-        self.actions = actions  # a list
+class QAgent:
+    def __init__(self, observation_space, env):
+        self.observation_space = observation_space[0].shape
+        self.action_space = len(env.action_set)
 
-        self.beta = 0.2
-        self.gamma = 0.9  # reward decay
-        self.lambda_ = 0.9
-        self.e_min = 0.1
+        # Hyperparameters for Q-learning
+        self.learning_rate = 0.1
+        self.discount_factor = 0.9
+        self.epsilon = 1.0  # Exploration rate (decays over time)
+        self.epsilon_decay = 0.995  # Rate of epsilon decay
+        self.min_epsilon = 0.01  # Minimum exploration rate
 
-        self.lr_w = lambda t: 1 / (1000 + t / 10)
-        self.lr_l = lambda t: 2 / (1000 + t / 10)
+        # Q-table initialization (replace with your preferred initialization method)
+        self.Q_table = np.zeros(self.observation_space + (self.action_space,)).T
 
-        self.q_table = pd.DataFrame(columns=self.actions, dtype=np.float64)
-        self.e_table = pd.DataFrame(columns=self.actions, dtype=np.float64)
+    def step(self, observation):
+        # Epsilon-greedy exploration
 
-    def clear_table(self):
-        self.q_table = self.q_table.iloc[0:0]
-        self.e_table = self.e_table.iloc[0:0]
-
-    def choose_action(self, observation):
-        self.check_state_exist(observation)
-
-        # choose best action
-        state_action = self.q_table.loc[observation, :]
-
-        # some actions have the same value
-        # state_action = state_action.reindex(np.random.permutation(state_action.index))
-        max_reward = state_action.max()
-
-        action = random.choice(state_action[state_action == max_reward].index)
-
-        return action
-
-    def learn(self, s, a, r, s_):
-        self.check_state_exist(s_)
-        self.check_state_exist(s)
-        # pd.set_option('display.width', 1000)
-        # print("=========")
-        # print("Learning: {}".format(s))
-        # print("Next State: {}".format(s_))
-        # print("Reward: {}".format(r))
-        # print("Action Taken: {}".format(a))
-
-        q_predict = self.q_table.at[s, a]
-        # print("Prev Prediction: ", q_predict)
-
-        max_exp_pay = self.q_table.loc[s_, :].max()
-
-        delta = self.beta * (r + self.gamma * max_exp_pay - q_predict)
-
-        self.e_table.at[s, a] = 1
-
-        eligibility = list(self.e_table[self.e_table >= self.e_min].stack().index)
-        # print('Delta: ', delta)
-        for sn, an in eligibility:
-            cur_e = self.e_table.at[sn, an]
-            new_q = self.q_table.at[sn, an] + delta * cur_e
-            # print('    State: ', sn)
-            # print('    Action: ', an)
-            # print('    Eligibility: ', cur_e)
-            # print('    New Q: ', new_q)
-            # print('    -------')
-            self.q_table.at[sn, an] = new_q
-            self.e_table.at[sn, an] = self.lambda_ * self.e_table.at[sn, an]
-
-    # print("-------")
-
-    def check_state_exist(self, state):
-        if state not in self.q_table.index:
-            # append new state to q table
-            self.q_table = self.q_table.append(
-                pd.Series(
-                    [0] * len(self.actions), index=self.q_table.columns, name=state
-                )
-            )
-            self.e_table = self.e_table.append(
-                pd.Series(
-                    [0] * len(self.actions), index=self.q_table.columns, name=state
-                )
-            )
-
-
-class QAgent(Agent):
-    name = "Q Agent"
-
-    def __init__(self, *kargs, **kwargs):
-        super().__init__(*kargs, **kwargs)
-
-        self.Q = None
-        self._prev_score = 0
-        self._prev_state = None
-
-        self.e_1 = 0
-        self.e_2 = 0.2  # expand stage
-
-    def expand(self, obs, depth):
-
-        player_no = next((i for i, item in enumerate(obs.players) if item.is_self))
-
-        env = Env.from_obs(obs)
-
-        observations = [env._make_obs(p) for p in env.players]
-
-        for i, player in enumerate(env.players):
-            if i == player_no:
-                continue  # we will control this player ourselves
-            else:
-                player.set_controller(H1(player))
-
-        for _ in range(depth):
-            actions = []
-
-            for i, player in enumerate(env.players):
-
-                if i == player_no:
-                    if random.random() > self.e_2:
-                        action = self.Q.choose_action(
-                            self._make_state(observations[i])
-                        )[player_no]
-                    else:
-                        action = random.choice(observations[i].actions)
-                else:
-                    action = player.step(observations[i])
-
-                # make sure the action is valid (if not replace with random action):
-                action = (
-                    action
-                    if action in observations[i].actions
-                    else random.choice(observations[i].actions)
-                )
-                actions.append(action)
-
-            prev_state = self._make_state(observations[player_no])
-            joint_action = tuple(actions)
-
-            past_score = observations[player_no].players[player_no].score
-
-            observations = env.step(actions)  # perform the joint action
-
-            reward = observations[player_no].players[player_no].score - past_score
-
-            state = self._make_state(observations[player_no])
-
-            self.Q.learn(prev_state, joint_action, reward, state)
-            # import time
-            # env.render("EXPANSION STAGE")
-            # time.sleep(0.4)
-            # input()
-
-            if env.game_over:
-                break
-
-    def choose_action(self, state, obs):
-        return self.Q.choose_action(state)[0]
-
-    def step(self, obs):
-
-        if self.Q is None:
-            self.Q = QLearningTable(
-                actions=list(product(*repeat(Action, len(obs.players))))
-            )
-
-        # observe current state s
-        state = self._make_state(obs)
-
-        if self.history and self._prev_state:
-            reward = self.score - self._prev_score
-            joint_action = tuple([p.history[-1] for p in obs.players])
-            self.Q.learn(self._prev_state, joint_action, reward, state)
-
-        if obs.game_over:
-            self.Q.clear_table()
-            return None
-
-        eligibility = self.Q.e_table.copy()
-        for _ in range(3):
-            self.Q.e_table = eligibility.copy()
-            self.expand(obs, depth=20)
-
-        if self.e_1 < np.random.uniform():
-            rl_action = self.choose_action(state, obs)
+        observation = discretize_observation(observation)
+        if np.random.rand() < self.epsilon:
+            action = random.randint(0,self.action_space) # Random action
         else:
-            rl_action = random.choice(obs.actions)
+            # Choose the action with the highest Q-value in the current state
+            action = np.argmax(np.round(self.Q_table[observation]))
 
-        action = rl_action if rl_action in obs.actions else random.choice(obs.actions)
-
-        self._prev_score = self.score
-        self._prev_state = state
-
+        # Update epsilon for decaying exploration
+        self.epsilon = max(self.epsilon * self.epsilon_decay, self.min_epsilon)
         return action
 
+    def update(self, observation, action, reward, next_observation, done):
+        # Update Q-table based on Bellman equation
+        Q_current = self.Q_table[observation][action]
+
+        # If episode is done, set target reward to 0
+        if done:
+            Q_target = reward
+        else:
+            # Get the max Q-value from the next state
+            Q_target = reward + self.discount_factor * np.max(self.Q_table[next_observation])
+
+        # Update Q-value with learning rate
+        Q_new = Q_current + self.learning_rate * (Q_target - Q_current)
+        self.Q_table[observation][action] = Q_new
+
+
+
+class Agent:
+    def __init__(self, id, alpha=0.1, gamma=0.9):
+        self.alpha = alpha
+        self.gamma = gamma
+        self.id = id
+        self.Q = np.ones((5, 5, 5, 6))  # Q-table for each (y, x, level) state and 6 actions
+
+    def observ2state(self, x):
+        return x[self.id]  # Independent agent observes its own state (y, x, level)
+
+    def update(self, x, nx, a, r):
+        xi = self.observ2state(x)
+        nxi = self.observ2state(nx)
+        self.Q[xi[0], xi[1], xi[2], a] += self.alpha * (r[self.id] + self.gamma * np.max(self.Q[nxi[0], nxi[1], nxi[2], :]) - self.Q[xi[0], xi[1], xi[2], a])
+
+        return self.Q[x, :]  # Return the Q-values for the current agent's state
+
+    def chooseAction(self, x, e):
+        xi = self.observ2state(x)
+        # Explore vs Exploit using e-greedy strategy
+        return egreedy(self.Q[xi[0], xi[1], xi[2], :], e=e)
+    
+
+    # egreedy function
+# e is the probability of choosing the best action
+def egreedy(v,e=0.95):
+    NA = len(v)
+    b = np.isclose(v,np.max(v))
+    no = np.sum(b)
+    if no<NA:
+        p = b*e/no+(1-b)*(1-e)/(NA-no)
+    else:
+        p = b/no
+
+    return int(np.random.choice(np.arange(NA),p=p))
