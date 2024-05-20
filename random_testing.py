@@ -17,11 +17,11 @@ def run_episode(env, agents):
     while not done:
         for i in range(len(agents)):
             A[i] = agents[i].chooseAction(obs[i], epsilon)
-        nx, rewards, dones, info = env.step(obs, A)
+        nx, rewards, dones, info = env.step(A)
         obs = nx
         steps += 1
-        agents[0] = agents[0].update(obs, nx[0], A[0],rewards[0])
-        agents[1] = agents[1].update(obs, nx[1], A[1], rewards[1])
+        agents[0].update(obs[0], nx[0], A,rewards)
+        agents[1].update(obs[1], nx[1], A, rewards)
         env.render()
         done = np.all(dones)
         time.sleep(0.2)

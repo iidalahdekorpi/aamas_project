@@ -26,7 +26,7 @@ class Agent:
         self.n_agents = n_agents
         
         if self.agentType == 'independent':
-            self.Q = np.ones((self.NL,NA))*2
+            self.Q = np.ones(((grid_size ** 2) ** (n_agents + n_apples),NA))*2
         elif self.agentType == 'observ':
             self.Q = np.ones((self.NL*self.NL,NA))*2
         elif self.agentType == 'central':
@@ -51,8 +51,9 @@ class Agent:
                 states.append(state)
 
         if self.agentType == 'independent':
-            shape = tuple(self.NL - i for i in range(self.n_apples+1))
-            return  np.ravel_multi_index(tuple(states[0:self.n_apples+1]),shape)
+            shape = tuple([self.NL, self.NL, self.NL, self.NL])
+            print(states)
+            return  np.ravel_multi_index(states,shape)
         elif self.agentType == 'observ' or self.agentType == 'central' or self.agentType == 'JALAM':
             shape = tuple(self.NL - i for i in range(self.n_apples+self.n_agents))
             return np.ravel_multi_index(states,shape)
@@ -66,6 +67,7 @@ class Agent:
         xi = self.observ2state(x)
         nxi = self.observ2state(nx)
 
+        x = list(map(int, x))
         if self.agentType == 'central':
             ai = np.ravel_multi_index(a,[self.NA,self.NA])
             self.Q[xi,ai] += self.alpha * (np.sum(r) + self.gamma * np.max(self.Q[nxi,:]) - self.Q[xi,ai])
@@ -74,7 +76,6 @@ class Agent:
             self.Q[xi,a[self.id],a[1-self.id]] += self.alpha * (r[self.id] + self.gamma * np.max(self.Q[nxi,:]) - self.Q[xi,a[self.id],a[1-self.id]])
         else:
             self.Q[xi,a[self.id]] += self.alpha * (r[self.id] + self.gamma * np.max(self.Q[nxi,:]) - self.Q[xi,a[self.id]])
-
         return self.Q[x,:]
 
     # choosing the action to make in a given state x
