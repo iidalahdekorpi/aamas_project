@@ -44,15 +44,20 @@ class Agent:
         states = []
         x = list(map(int, x))
         for i in range(0,len(x),3):
-            if x[i] == -1:
+            if x[i] == -1 and self.n_apples == 2:
                 self.n_apples -= 1
+            elif x[i] == -1 and self.n_apples == 1:
+                return 0
             else:
                 state  = np.ravel_multi_index(x[i:i+2], (self.grid_size, self.grid_size))
                 states.append(state)
 
         if self.agentType == 'independent':
-            shape = tuple([self.NL, self.NL, self.NL, self.NL])
-            print(states)
+            if self.n_apples == 2:
+                shape = tuple([self.NL, self.NL, self.NL, self.NL])
+            else:
+                shape = tuple([self.NL, self.NL, self.NL])
+            #print(states, shape, self.n_apples)
             return  np.ravel_multi_index(states,shape)
         elif self.agentType == 'observ' or self.agentType == 'central' or self.agentType == 'JALAM':
             shape = tuple(self.NL - i for i in range(self.n_apples+self.n_agents))

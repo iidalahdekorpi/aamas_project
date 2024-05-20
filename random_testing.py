@@ -24,7 +24,9 @@ def run_episode(env, agents):
         agents[1].update(obs[1], nx[1], A, rewards)
         env.render()
         done = np.all(dones)
-        time.sleep(0.2)
+        time.sleep(0.1)
+    agents[0].n_apples = 2
+    agents[1].n_apples = 2
     return steps, rewards
 
 
@@ -38,7 +40,7 @@ if __name__ == "__main__":
     n_agents = 2
     for i in range(n_agents):
         agents.append(Agent(id = i, grid_size=5, n_apples=2, n_agents=n_agents))
-    n_episodes = 1
+    n_episodes = 5
     for episode in range(n_episodes):
         steps, rewards = run_episode(env, agents)
         print(f"Episode {episode + 1}: Steps taken = {steps}, Rewards = {rewards}")
