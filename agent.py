@@ -14,7 +14,7 @@ def egreedy(v,e=0.95):
     return int(np.random.choice(np.arange(NA),p=p))
 
 class Agent:
-    def __init__(self, id, grid_size,n_apples,n_agents, NA = 6, alpha = 0.1, gamma = 0.9, agentType = 'JALAM'):
+    def __init__(self, id, grid_size,n_apples,n_agents, NA = 6, alpha = 0.1, gamma = 0.9, agentType = 'independent'):
         self.alpha = alpha
         self.gamma = gamma
         self.id = id
@@ -26,7 +26,7 @@ class Agent:
         self.n_agents = n_agents
         
         if self.agentType == 'independent':
-            self.Q = np.ones(((grid_size ** 2) ** (n_agents + n_apples),NA))*2
+            self.Q = np.ones((self.NL ** (1+n_apples),NA))*2
         elif self.agentType == 'observ':
             self.Q = np.ones((self.NL*self.NL,NA))*2
         elif self.agentType == 'central':
@@ -56,12 +56,15 @@ class Agent:
     # Check if there are no more apples
         if self.n_apples == 0:
             return 0
-        
-        shape = tuple(self.grid_size ** 2 for _ in range(len(states)))
+    
         if self.agentType == 'independent':
-            #print(states, shape, self.n_apples)
+            shape = tuple(self.grid_size for _ in range(3))
+            s_i = self.id+5
+            e_i = self.id+8
+            states = x[s_i:e_i]
             return  np.ravel_multi_index(states,shape)
         elif self.agentType == 'observ' or self.agentType == 'central' or self.agentType == 'JALAM':
+            shape = tuple(self.grid_size ** 2 for _ in range(len(states)))
             return np.ravel_multi_index(states,shape)
         
     # this function is the learning update after any iteration with the environment, it gets
@@ -80,8 +83,8 @@ class Agent:
             self.Q[xi,ai] += self.alpha * (np.sum(r) + self.gamma * np.max(self.Q[nxi,:]) - self.Q[xi,ai])
         elif self.agentType == 'JALAM':
             
-            self.C[xi,a[self.id],a[1-self.id]] += 1
-            self.Q[xi,a[self.id],a[1-self.id]] += self.alpha * (r[self.id] + self.gamma * np.max(self.Q[nxi,:]) - self.Q[xi,a[self.id],a[1-self.id]])
+            self.C[xi, a[self.id], a[1 - self.id]] += 1
+            self.Q[xi, a[self.id], a[1 - self.id]] += self.alpha * (r[self.id] + self.gamma * np.max(self.Q[nxi, :]) - self.Q[xi, a[self.id], a[1 - self.id]])
         else:
             self.Q[xi, a[self.id]] += self.alpha * (r[self.id] + self.gamma * np.max(self.Q[nxi, :]) - self.Q[xi, a[self.id]])
             
@@ -97,11 +100,9 @@ class Agent:
                 a = np.unravel_index(A,[self.NA,self.NA])
                 return a[self.id]
             elif self.agentType == 'JALAM':
-                policyB = np.sum(self.C[xi,:,:],axis = 1)
-                policyB = policyB/np.sum(policyB)
-
-                bestreponseA = self.Q[xi,:,:] @ policyB.T
-
+                policyB = np.sum(self.C[xi, :, :], axis=1)
+                policyB = policyB / np.sum(policyB)
+                bestreponseA = self.Q[xi, :, :] @ policyB.T
                 actA = np.argmax(bestreponseA)
                 return actA
             else:

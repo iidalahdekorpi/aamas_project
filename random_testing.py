@@ -24,13 +24,15 @@ def run_episode(env, agents):
     A = np.ones(2,dtype = int)
     steps = 0
     epsilon = 0.999
+    total_rewards = [0,0]
     while not done:
         for i in range(len(agents)):
             A[i] = agents[i].chooseAction(obs[i], epsilon)
         nx, rewards, dones, info = env.step(A)
         steps += 1
-        agents[0].update(obs[0], nx[0], A,rewards)
-        agents[1].update(obs[1], nx[1], A, rewards)
+        for i in range(len(agents)):
+            agents[i].update(obs[i], nx[i], A,rewards)
+            total_rewards[i] += rewards[i]
 
         obs = nx
         env.render()
@@ -38,7 +40,7 @@ def run_episode(env, agents):
         #time.sleep(0.5)
     agents[0].n_apples = 2
     agents[1].n_apples = 2
-    return steps, rewards
+    return steps, total_rewards
 
 def plot_learning_curve(rewards, episode_length):
     plt.figure(figsize=(10, 5))
@@ -79,15 +81,18 @@ if __name__ == "__main__":
     env.spawn_food(food_locations, food_level)
     '''
     # Create agents
-    results = {}
     agents = []
     n_agents = 2
     agents = [Agent(id=i, grid_size=5, n_apples=2, n_agents=2) for i in range(2)]
-    n_episodes = 100
+    n_episodes = 2
+    episode_lengths = []
+    total_rewards = []
     for episode in range(n_episodes):
         steps, rewards = run_episode(env, agents)
-        print(f"Episode {episode + 1}: Steps taken = {steps}, Rewards = {rewards}")
+        total_rewards.append(sum(rewards))
+        episode_lengths.append(steps)
+        #print(f"Episode {episode + 1}: Steps taken = {steps}, Rewards = {rewards}")
     env.close()
 
-    #plot_learning_curve(rewards, n_episodes)
-    plot_q_value_heatmap(agents[0].Q)
+    plot_learning_curve(total_rewards, episode_lengths)
+    #plot_q_value_heatmap(agents[0].Q[:, :, 0])
