@@ -1,11 +1,21 @@
 import gym
 import lbforaging
 import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
 import time
 from lbforaging.foraging.environment import Action
 import random
 from agent import Agent
+from lbforaging.foraging.environment import ForagingEnv
 #from new_agents import RandomAgent, GreedyAgent, H1, H2, H3, H4, QAgent
+from utils import compare_results
+
+def custom_spawn_food(self, specific_locations, level=1):
+    self.field = np.zeros((self.rows, self.cols), dtype=int)
+    for row, col in specific_locations:
+        self.field[row, col] = level
+    self._food_spawned = self.field.sum()
 
 
 def run_episode(env, agents):
@@ -13,36 +23,71 @@ def run_episode(env, agents):
     done = False
     A = np.ones(2,dtype = int)
     steps = 0
-    epsilon = 0.9
+    epsilon = 0.999
     while not done:
         for i in range(len(agents)):
             A[i] = agents[i].chooseAction(obs[i], epsilon)
         nx, rewards, dones, info = env.step(A)
-        obs = nx
         steps += 1
         agents[0].update(obs[0], nx[0], A,rewards)
         agents[1].update(obs[1], nx[1], A, rewards)
+
+        obs = nx
         env.render()
         done = np.all(dones)
-        time.sleep(0.1)
+        #time.sleep(0.5)
     agents[0].n_apples = 2
     agents[1].n_apples = 2
     return steps, rewards
 
+def plot_learning_curve(rewards, episode_length):
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.plot(rewards)
+    plt.title('Learning Curve - Total Rewards')
+    plt.xlabel('Episode')
+    plt.ylabel('Total Rewards')
+
+    plt.subplot(1, 2, 2)
+    plt.plot(episode_length)
+    plt.title('Learning Curve - Episode Length')
+    plt.xlabel('Episode')
+    plt.ylabel('Episode Length (Steps)')
+
+    plt.tight_layout()
+    plt.show()
+
+def plot_q_value_heatmap(Q):
+    plt.figure(figsize=(8, 6))
+    plt.imshow(Q, cmap='hot', interpolation='nearest')
+    plt.title('Q-Value Heatmap')
+    plt.colorbar(label='Q-Value')
+    plt.xlabel('Action')
+    plt.ylabel('State')
+    plt.show()
 
 
 if __name__ == "__main__":
 
     env = gym.make("Foraging-5x5-2p-2f-v2")
+    '''
+    env = gym.make("Foraging-5x5-2p-2f-coop-v2")
 
+    food_locations = [(2, 2), (3, 4)]
+    food_level = 3
+    env.spawn_food = custom_spawn_food
+    env.spawn_food(food_locations, food_level)
+    '''
     # Create agents
+    results = {}
     agents = []
     n_agents = 2
-    for i in range(n_agents):
-        agents.append(Agent(id = i, grid_size=5, n_apples=2, n_agents=n_agents))
-    n_episodes = 5
+    agents = [Agent(id=i, grid_size=5, n_apples=2, n_agents=2) for i in range(2)]
+    n_episodes = 100
     for episode in range(n_episodes):
         steps, rewards = run_episode(env, agents)
         print(f"Episode {episode + 1}: Steps taken = {steps}, Rewards = {rewards}")
-
     env.close()
+
+    #plot_learning_curve(rewards, n_episodes)
+    plot_q_value_heatmap(agents[0].Q)
