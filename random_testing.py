@@ -10,6 +10,7 @@ from agent import Agent
 from lbforaging.foraging.environment import ForagingEnv
 #from new_agents import RandomAgent, GreedyAgent, H1, H2, H3, H4, QAgent
 from utils import compare_results
+from new_agents import RandomAgent
 
 def custom_spawn_food(self, specific_locations, level=1):
     self.field = np.zeros((self.rows, self.cols), dtype=int)
@@ -23,7 +24,7 @@ def run_episode(env, agents):
     done = False
     A = np.ones(2,dtype = int)
     steps = 0
-    epsilon = 0.75
+    epsilon = 0.95
     total_rewards = [0,0]
     while not done:
         for i in range(len(agents)):
@@ -45,16 +46,20 @@ def run_episode(env, agents):
         agents[i].n_apples = 2
     return steps, total_rewards
 
-def plot_learning_curve(rewards, episode_length, window_size=100):
-    avg_rewards = [np.mean(rewards[max(0, i - window_size):(i + 1)]) for i in range(len(rewards))]
+def plot_learning_curve(rewards, episode_length, window_size=1000):
+    avg_rewards = [
+        [np.mean(agent_rewards[max(0, i - window_size):(i + 1)]) for i in range(len(agent_rewards))]
+        for agent_rewards in rewards
+    ]
     avg_episode_length = [np.mean(episode_length[max(0, i - window_size):(i + 1)]) for i in range(len(episode_length))]
+    
     
     plt.figure(figsize=(15, 5))
     
     # Subplot for Total Rewards and Average Rewards
     plt.subplot(1, 2, 1)
-    #plt.plot(rewards, label='Total Rewards')
-    plt.plot(avg_rewards, label=f'Average Rewards (Window size = {window_size})', linestyle='--')
+    for idx, agent_rewards in enumerate(rewards):
+        plt.plot(avg_rewards[idx], label=f'Agent {idx+1} Average Rewards (Window size = {window_size})', linestyle='-')
     plt.title('Learning Curve - Average Rewards')
     plt.xlabel('Episode')
     plt.ylabel('Rewards')
@@ -62,15 +67,13 @@ def plot_learning_curve(rewards, episode_length, window_size=100):
     
     # Subplot for Episode Length and Average Episode Length
     plt.subplot(1, 2, 2)
-    #plt.plot(episode_length, label='Episode Length')
-    plt.plot(avg_episode_length, label=f'Average Episode Length (Window size = {window_size})', linestyle='--')
-    plt.title('Learning Curve - Average Episode Length')
+    plt.plot(avg_episode_length, label=f'Average Episode Length (Window size = {window_size})', linestyle='-')
+    plt.title('Learning Curve - Episode Length')
     plt.xlabel('Episode')
     plt.ylabel('Episode Length (Steps)')
     plt.legend()
-
     plt.tight_layout()
-    plt.savefig('fig1_i_5k.png')
+    plt.savefig('jalam_123.png')
     plt.show()
 
 def plot_q_value_heatmap(Q):
@@ -82,6 +85,25 @@ def plot_q_value_heatmap(Q):
     plt.ylabel('State')
     plt.show()
 
+def run_random(env, agent):
+    total_rewards = []
+    for _ in range(n_episodes):
+        obs = env.reset()  
+        episode_reward = 0 
+        done = False 
+        steps = 0
+        while not done:
+            steps += 1
+            action = agent.act(obs)
+            
+            next_obs, reward, done, _ = env.step(action)
+            
+            episode_reward += reward
+            
+            obs = next_obs
+        
+        total_rewards.append(episode_reward)
+    return steps, total_rewards
 
 if __name__ == "__main__":
 
@@ -97,20 +119,22 @@ if __name__ == "__main__":
     # Create agents
     agents = []
     n_agents = 2
-    agents = [Agent(id=i, grid_size=5, n_apples=2, n_agents=2) for i in range(2)]
-    n_episodes = 5000
-    episode_lengths = []
-    total_rewards = []
-    i = 0
+    #agents = [Agent(id=i, grid_size=5, n_apples=2, n_agents=2, maxlevel=env.max_player_level) for i in range(2)]
+    agents = [RandomAgent(env.action_space) for _ in range(2)]
+    n_episodes = 10000
+    episode_length = []
+    total_rewards = [[] for _ in range(2)]
+    i=0
     for episode in range(n_episodes):
-        steps, rewards = run_episode(env, agents)
-        total_rewards.append(sum(rewards))
-        episode_lengths.append(steps)
+        steps, rewards = run_random(env, agents)
+        episode_length.append(steps)
+        for idx in range(2):
+            total_rewards[idx].append(rewards[idx])
         if (i % 100 == 0):
-            print(i, steps, sum(rewards))
+            print(i)
         i += 1
         #print(f"Episode {episode + 1}: Steps taken = {steps}, Rewards = {rewards}"
 
-    plot_learning_curve(total_rewards, episode_lengths)
+    plot_learning_curve(total_rewards, episode_length)
     #plot_q_value_heatmap(agents[0].Q[:, :, 0])
     env.close()
