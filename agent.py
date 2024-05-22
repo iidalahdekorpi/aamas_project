@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def egreedy(v,e=0.95):
+def egreedy(v,e=0.75):
     NA = len(v)
     b = np.isclose(v,np.max(v))
     no = np.sum(b)
@@ -42,20 +42,10 @@ class Agent:
     # this function takes the whole environment state and projects it in the state that each type of agent has access
     def observ2state(self, x):
         states = []
-        apples_decremented = 0
+        apples_collected = 0
         x = list(map(int, x))
-        for i in range(0,len(x),3):
-            if x[i] == -1:
-                if apples_decremented < self.n_apples:
-                    apples_decremented += 1
-            else:
-                state  = np.ravel_multi_index(x[i:i+2], (self.grid_size, self.grid_size))
-                states.append(state)
-
-        self.n_apples -= apples_decremented
+        
     # Check if there are no more apples
-        if self.n_apples == 0:
-            return 0
     
         if self.agentType == 'independent':
             shape = tuple(self.grid_size for _ in range(3))
@@ -64,6 +54,17 @@ class Agent:
             states = x[s_i:e_i]
             return  np.ravel_multi_index(states,shape)
         elif self.agentType == 'observ' or self.agentType == 'central' or self.agentType == 'JALAM':
+            for i in range(0,len(x),3):
+                if x[i] == -1 and self.n_apples == 2:
+                    self.n_apples = 1
+                elif x[i] == -1 and x[i+3] == -1:
+                    self.n_apples = 0
+                    return 0
+                else:
+                    if x[i] == -1:
+                        break
+                    state  = np.ravel_multi_index(x[i:i+2], (self.grid_size, self.grid_size))
+                    states.append(state)
             shape = tuple(self.grid_size ** 2 for _ in range(len(states)))
             return np.ravel_multi_index(states,shape)
         
@@ -84,11 +85,10 @@ class Agent:
         elif self.agentType == 'JALAM':
             
             self.C[xi, a[self.id], a[1 - self.id]] += 1
-            self.Q[xi, a[self.id], a[1 - self.id]] += self.alpha * (r[self.id] + self.gamma * np.max(self.Q[nxi, :]) - self.Q[xi, a[self.id], a[1 - self.id]])
+            self.Q[xi, a[self.id], a[1 - self.id]] += self.alpha * (r[self.id] + self.gamma * np.max(self.Q[nxi, :, a[1 - self.id]]) - self.Q[xi, a[self.id], a[1 - self.id]])
         else:
             self.Q[xi, a[self.id]] += self.alpha * (r[self.id] + self.gamma * np.max(self.Q[nxi, :]) - self.Q[xi, a[self.id]])
             
-        #print(f"Updated Q[{xi}, {a[self.id]}]: {self.Q[xi, a[self.id]]}")
         return self.Q[x,:]
 
     # choosing the action to make in a given state x

@@ -23,7 +23,7 @@ def run_episode(env, agents):
     done = False
     A = np.ones(2,dtype = int)
     steps = 0
-    epsilon = 0.999
+    epsilon = 0.75
     total_rewards = [0,0]
     while not done:
         for i in range(len(agents)):
@@ -31,32 +31,46 @@ def run_episode(env, agents):
         nx, rewards, dones, info = env.step(A)
         steps += 1
         for i in range(len(agents)):
-            agents[i].update(obs[i], nx[i], A,rewards)
+            agents[i].update(obs[i], nx[i], A, rewards)
             total_rewards[i] += rewards[i]
+            #print(steps, agents[i].n_apples)
+            if agents[i].n_apples == 0:
+                done = True
 
         obs = nx
         env.render()
         done = np.all(dones)
         #time.sleep(0.5)
-    agents[0].n_apples = 2
-    agents[1].n_apples = 2
+    for i in range(len(agents)):
+        agents[i].n_apples = 2
     return steps, total_rewards
 
-def plot_learning_curve(rewards, episode_length):
-    plt.figure(figsize=(10, 5))
+def plot_learning_curve(rewards, episode_length, window_size=100):
+    avg_rewards = [np.mean(rewards[max(0, i - window_size):(i + 1)]) for i in range(len(rewards))]
+    avg_episode_length = [np.mean(episode_length[max(0, i - window_size):(i + 1)]) for i in range(len(episode_length))]
+    
+    plt.figure(figsize=(15, 5))
+    
+    # Subplot for Total Rewards and Average Rewards
     plt.subplot(1, 2, 1)
-    plt.plot(rewards)
-    plt.title('Learning Curve - Total Rewards')
+    #plt.plot(rewards, label='Total Rewards')
+    plt.plot(avg_rewards, label=f'Average Rewards (Window size = {window_size})', linestyle='--')
+    plt.title('Learning Curve - Average Rewards')
     plt.xlabel('Episode')
-    plt.ylabel('Total Rewards')
-
+    plt.ylabel('Rewards')
+    plt.legend()
+    
+    # Subplot for Episode Length and Average Episode Length
     plt.subplot(1, 2, 2)
-    plt.plot(episode_length)
-    plt.title('Learning Curve - Episode Length')
+    #plt.plot(episode_length, label='Episode Length')
+    plt.plot(avg_episode_length, label=f'Average Episode Length (Window size = {window_size})', linestyle='--')
+    plt.title('Learning Curve - Average Episode Length')
     plt.xlabel('Episode')
     plt.ylabel('Episode Length (Steps)')
+    plt.legend()
 
     plt.tight_layout()
+    plt.savefig('fig1_i_5k.png')
     plt.show()
 
 def plot_q_value_heatmap(Q):
@@ -84,15 +98,19 @@ if __name__ == "__main__":
     agents = []
     n_agents = 2
     agents = [Agent(id=i, grid_size=5, n_apples=2, n_agents=2) for i in range(2)]
-    n_episodes = 2
+    n_episodes = 5000
     episode_lengths = []
     total_rewards = []
+    i = 0
     for episode in range(n_episodes):
         steps, rewards = run_episode(env, agents)
         total_rewards.append(sum(rewards))
         episode_lengths.append(steps)
-        #print(f"Episode {episode + 1}: Steps taken = {steps}, Rewards = {rewards}")
-    env.close()
+        if (i % 100 == 0):
+            print(i, steps, sum(rewards))
+        i += 1
+        #print(f"Episode {episode + 1}: Steps taken = {steps}, Rewards = {rewards}"
 
     plot_learning_curve(total_rewards, episode_lengths)
     #plot_q_value_heatmap(agents[0].Q[:, :, 0])
+    env.close()
