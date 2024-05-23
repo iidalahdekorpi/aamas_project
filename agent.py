@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+import random
+from lbforaging.foraging.environment import Action
 
 def egreedy(v,e=0.95):
     NA = len(v)
@@ -14,7 +15,7 @@ def egreedy(v,e=0.95):
     return int(np.random.choice(np.arange(NA),p=p))
 
 class Agent:
-    def __init__(self, id, grid_size,n_apples,n_agents,maxlevel, NA = 6, alpha = 0.1, gamma = 0.9, agentType = 'JALAM'):
+    def __init__(self, id, grid_size,n_apples,n_agents,maxlevel, agentType, NA = 6, alpha = 0.1, gamma = 0.9):
         self.alpha = alpha
         self.gamma = gamma
         self.id = id
@@ -109,3 +110,9 @@ class Agent:
 
 
 
+class RandomAgent:
+    def __init__(self, action_space):
+        self.action_space = action_space
+
+    def chooseAction(self, observation, epsilon=None):
+        return random.choice([Action.NONE, Action.NORTH, Action.SOUTH, Action.WEST, Action.EAST, Action.LOAD])

@@ -12,11 +12,8 @@ class RandomAgent:
     def __init__(self, action_space):
         self.action_space = action_space
 
-    def act(self, observation):
-        action = random.choice([Action.NONE, Action.NORTH, Action.SOUTH,
-                                Action.WEST, Action.EAST, Action.LOAD])
-        return action
-    
+    def chooseAction(self, observation, epsilon=None):
+        return random.choice([Action.NONE, Action.NORTH, Action.SOUTH, Action.WEST, Action.EAST, Action.LOAD])
 class GreedyAgent:
 
     def __init__(self, env, action_space):
@@ -282,3 +279,4 @@ def egreedy(v,e=0.95):
         p = b/no
 
     return int(np.random.choice(np.arange(NA),p=p))
+
