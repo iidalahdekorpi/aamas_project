@@ -37,7 +37,7 @@ def run_episode(env, agents):
         obs = nx
         env.render()
         done = np.all(dones)
-        #time.sleep(0.5)  # ADJUST THIS TO MAKE THE GAME RUN SLOWER
+        time.sleep(0.2)  # ADJUST THIS TO MAKE THE GAME RUN SLOWER
     return steps, total_rewards
 
 
