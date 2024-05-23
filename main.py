@@ -160,23 +160,27 @@ if __name__ == "__main__":
     # Grid size 5 for env1 and 6 for env2
     grid_size = 5
 
-    # Choose agents
+    # Choose the agent types ('JALAM', 'independent', 'observ', 'central')
+    agent_type1 = 'JALAM'
+    agent_type2 = 'independent'
+
+    # Choose agents (Agent for the random environment, Agent2 for the fixed environment)
     agents = [
-        Agent(id=0, grid_size=grid_size, n_apples=2, n_agents=2, maxlevel=env.max_player_level, agentType='central'),
-        Agent(id=1, grid_size=grid_size, n_apples=2, n_agents=2, maxlevel=env.max_player_level, agentType='JALAM')
+        Agent(id=0, grid_size=grid_size, n_apples=2, n_agents=2, maxlevel=env.max_player_level, agentType=agent_type1),
+        Agent(id=1, grid_size=grid_size, n_apples=2, n_agents=2, maxlevel=env.max_player_level, agentType=agent_type2)
     ]
 
     # Choose the number of episodes run
     n_episodes = 10000
     episode_length = []
-    total_rewards = [[] for _ in range(2)]
+    total_rewards = [[] for _ in range(len(agents))]
 
     i=0
     for episode in range(n_episodes):
 
         steps, rewards = run_episode(env, agents) # For random agent, run run_random
         episode_length.append(steps)
-        for idx in range(2):
+        for idx in range(len(agents)):
             total_rewards[idx].append(rewards[idx])
 
         if (i % 100 == 0):
@@ -185,8 +189,8 @@ if __name__ == "__main__":
         #print(f"Episode {episode + 1}: Steps taken = {steps}, Rewards = {rewards}"
 
     results = {
-        "Agent 1 (JALAM)": np.array(total_rewards[0]),
-        "Agent 2 (Independent)": np.array(total_rewards[1])
+        "Agent 1": np.array(total_rewards[0]),
+        "Agent 2": np.array(total_rewards[1])
     }
 
     plot_learning_curve(total_rewards, episode_length)
